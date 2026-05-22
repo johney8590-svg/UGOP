@@ -1,12 +1,193 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>飲料連鎖營運監控系統</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>飲料連鎖營運監控系統</title>
+  <!-- 引入 Tailwind CSS 與 Vue 3 核心 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans min-h-screen">
+  <div id="app">
+    <!-- 頂部導覽列 -->
+    <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <span class="text-xl font-bold text-emerald-400">飲料連鎖營運監控系統</span>
+        <span class="bg-gray-700 text-xs px-2 py-1 rounded">v1.0 Live</span>
+      </div>
+      <div class="flex bg-gray-900 p-1 rounded-lg border border-gray-700">
+        <button @click="currentView = 'front'" :class="['px-4 py-2 rounded-md transition', currentView === 'front' ? 'bg-emerald-500 text-black font-semibold' : 'text-gray-400']">
+          前台儀表板
+        </button>
+        <button @click="currentView = 'back'" :class="['px-4 py-2 rounded-md transition', currentView === 'back' ? 'bg-emerald-500 text-black font-semibold' : 'text-gray-400']">
+          後台參數修正
+        </button>
+      </div>
+    </header>
+
+    <!-- 前台儀表板視圖 -->
+    <main v-if="currentView === 'front'" class="p-6 space-y-6">
+      <!-- 店平均三劍客數據卡 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 relative overflow-hidden">
+          <p class="text-gray-400 text-sm font-medium">店平均日營收 (PSD)</p>
+          <p :class="['text-3xl font-black mt-2', psd < config.breakEvenPSD ? 'text-red-400' : 'text-emerald-400']">
+            ${{ psd.toLocaleString() }}
+          </p>
+          <p class="text-xs text-gray-500 mt-1">損益兩平基準：${{ config.breakEvenPSD.toLocaleString() }}</p>
+          <div v-if="psd < config.breakEvenPSD" class="absolute top-0 right-0 bg-red-500 text-black font-bold text-xs px-2 py-1 rounded-bl">營收破底告警</div>
+        </div>
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+          <p class="text-gray-400 text-sm font-medium">店平均日來客 (PS_TC)</p>
+          <p class="text-3xl font-black text-blue-400 mt-2">{{ psTC.toLocaleString() }} 單</p>
+          <p class="text-xs text-gray-500 mt-1">單店日均交易筆數</p>
+        </div>
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+          <p class="text-gray-400 text-sm font-medium">店平均日杯數 (PS_Cup)</p>
+          <p class="text-3xl font-black text-amber-400 mt-2">{{ psCups.toLocaleString() }} 杯</p>
+          <p class="text-xs text-gray-500 mt-1">單店日均物料消耗體量</p>
+        </div>
+      </div>
+
+      <!-- 全通路總量數據卡 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+          <span class="text-sm text-gray-400">品牌總營收 (GMV)</span>
+          <div class="text-xl font-bold mt-1 text-gray-200">${{ rawTotalData.totalGMV.toLocaleString() }}</div>
+        </div>
+        <div class="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+          <span class="text-sm text-gray-400">總來客數</span>
+          <div class="text-xl font-bold mt-1 text-gray-200">{{ rawTotalData.totalTC.toLocaleString() }} 單</div>
+        </div>
+        <div class="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+          <span class="text-sm text-gray-400">總銷售杯數</span>
+          <div class="text-xl font-bold mt-1 text-gray-200">{{ rawTotalData.totalCups.toLocaleString() }} 杯</div>
+        </div>
+      </div>
+
+      <!-- 外送平台三維度佔比分析 -->
+      <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+        <h3 class="text-lg font-bold mb-4 text-gray-200">外送通路三維度結構監控</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+            <span class="text-sm text-gray-400">外送金額占比</span>
+            <div class="text-2xl font-bold mt-2 text-purple-400">{{ deliveryPercentages.amountPct }}%</div>
+            <div class="text-xs text-gray-500 mt-1">${{ rawTotalData.deliveryGMV.toLocaleString() }}</div>
+          </div>
+          <div class="bg-gray-900 p-4 rounded-lg border border-gray-800">
+            <span class="text-sm text-gray-400">外送單數占比</span>
+            <div class="text-2xl font-bold mt-2 text-purple-400">{{ deliveryPercentages.orderPct }}%</div>
+            <div class="text-xs text-gray-500 mt-1">{{ rawTotalData.deliveryOrders.toLocaleString() }} 單</div>
+          </div>
+          <div class="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
+            <span class="text-sm text-gray-400">外送杯數占比</span>
+            <div class="text-2xl font-bold mt-2 text-purple-400">{{ deliveryPercentages.cupPct }}%</div>
+            <div class="text-xs text-gray-500 mt-1">{{ rawTotalData.deliveryCups.toLocaleString() }} 杯</div>
+            <div v-if="parseFloat(deliveryPercentages.cupPct) > parseFloat(deliveryPercentages.amountPct)" class="text-xs text-red-400 mt-2">
+              ⚠️ 促銷過深，杯數增幅大於金額！
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 後台參數/數據修正視圖 -->
+    <main v-else class="p-6 max-w-3xl mx-auto space-y-8">
+      <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+        <h2 class="text-xl font-bold text-emerald-400 mb-6 border-b border-gray-700 pb-2">總部營運核心參數修正</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">現行營運總店數</label>
+            <input type="number" v-model.number="config.totalStores" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-emerald-300 focus:outline-none focus:border-emerald-400">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">單店日均損益兩平點 (Break-Even PSD)</label>
+            <input type="number" v-model.number="config.breakEvenPSD" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-emerald-300 focus:outline-none focus:border-emerald-400">
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+        <h2 class="text-xl font-bold text-blue-400 mb-6 border-b border-gray-700 pb-2">營運總數據輸入 (可由 POS/報表定期更新)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">品牌全通路總 GMV</label>
+            <input type="number" v-model.number="rawTotalData.totalGMV" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-blue-300 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">外送平台總 GMV</label>
+            <input type="number" v-model.number="rawTotalData.deliveryGMV" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-purple-300 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">品牌總來客數 (單數)</label>
+            <input type="number" v-model.number="rawTotalData.totalTC" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-blue-300 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">外送平台總單數</label>
+            <input type="number" v-model.number="rawTotalData.deliveryOrders" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-purple-300 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">品牌總銷售杯數</label>
+            <input type="number" v-model.number="rawTotalData.totalCups" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-blue-300 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-2">外送平台總銷售杯數</label>
+            <input type="number" v-model.number="rawTotalData.deliveryCups" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-purple-300 focus:outline-none">
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-4">＊提示：此處修改之參數將即時重算前台所有店平均數據，並即時觸發告警機制。</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const currentView = ref('front');
+        
+        const config = ref({
+          totalStores: 25,
+          operatingDays: 30,
+          breakEvenPSD: 22000
+        });
+
+        const rawTotalData = ref({
+          totalGMV: 18750000,
+          totalTC: 262500,
+          totalCups: 375000,
+          deliveryGMV: 6562500,
+          deliveryOrders: 78750,
+          deliveryCups: 112500
+        });
+
+        // 核心店平均指標計算邏輯
+        const psd = computed(() => Math.round(rawTotalData.value.totalGMV / (config.value.totalStores * config.value.operatingDays)));
+        const psTC = computed(() => Math.round(rawTotalData.value.totalTC / (config.value.totalStores * config.value.operatingDays)));
+        const psCups = computed(() => Math.round(rawTotalData.value.totalCups / (config.value.totalStores * config.value.operatingDays)));
+
+        // 外送佔比計算
+        const deliveryPercentages = computed(() => {
+          return {
+            amountPct: ((rawTotalData.value.deliveryGMV / rawTotalData.value.totalGMV) * 100).toFixed(1),
+            orderPct: ((rawTotalData.value.deliveryOrders / rawTotalData.value.totalTC) * 100).toFixed(1),
+            cupPct: ((rawTotalData.value.deliveryCups / rawTotalData.value.totalCups) * 100).toFixed(1)
+          };
+        });
+
+        return {
+          currentView,
+          config,
+          rawTotalData,
+          psd,
+          psTC,
+          psCups,
+          deliveryPercentages
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
 </html>
